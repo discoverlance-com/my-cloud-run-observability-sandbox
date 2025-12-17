@@ -1,0 +1,5 @@
+Flask==3.1.2
+gunicorn==23.0.0
+google-cloud-firestore==2.22.0
+google-cloud-logging==3.13.0
+python-json-logger==4.0.0
