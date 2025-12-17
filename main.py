@@ -107,13 +107,16 @@ def slow_request():
     )
 
     # simulate slow processing
-    time.sleep(4)
+    time.sleep(2)
 
     # simulate db call to show firestore in trace
     if db:
         docs = db.collection("newUsers").limit(1).stream()
         for doc in docs:
             pass
+
+    # simulate slow processing
+    time.sleep(2)
 
     logger.info(
         "Slow process finished...",
@@ -185,6 +188,26 @@ def cached_config():
         )
 
     return jsonify(GLOBAL_CACHE)
+
+
+# simulate crashing application
+@app.route("/crash", methods=["GET"])
+def crash():
+    """
+    Trigger Cloud Error Reporting
+    Because the errror is unhandled, python prints a stack trace
+    Google Cloud detects this trace and groups it in 'Error Reporting' dashboard
+    """
+
+    trace_id = get_trace_id()
+    logger.info(
+        "About to crash application...",
+        extra={"component": "chaos", "trace_id": trace_id},
+    )
+
+    # raise an exception. Flask catches it but returns a 500 response
+    # but it will print the traceback to stdout which GCP picks up
+    raise RuntimeError("This is a forced crash to test Error Reporting!")
 
 
 if __name__ == "__main__":
