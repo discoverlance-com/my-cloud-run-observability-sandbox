@@ -181,7 +181,7 @@ def cached_config():
     else:
         logger.info(
             "Cache Hit - Serving from RAM",
-            extra={"component": "cacje", "trace_id": trace_id},
+            extra={"component": "cache", "trace_id": trace_id},
         )
 
     return jsonify(GLOBAL_CACHE)
