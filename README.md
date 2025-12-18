@@ -46,8 +46,9 @@ The `Dockerfile` uses a builder stage to install packages into `/app/site-packag
 - `POST /users` — Add a user to Firestore
   - Expects JSON with `id` and `name`
 - `GET /slow-trace` — Simulates a slow dependency (sleeps, touches Firestore) — useful to create longer traces
-- `GET /cpu-heavy` — Computes Fibonacci recursively to spike CPU — useful to observe CPU metrics
+- `GET /cpu-heavy` — Computes some arbitrary CPU task — useful to observe CPU metrics
 - `GET /flaky` — Randomly returns 500 to simulate intermittent errors
+- `GET /crash` — Demonstrate a runtime error and how Error reporting records and keeps track of errors
 - `GET /cached-config` — Demonstrates cold vs warm start behaviour using a global cache
 
 ## Observability notes

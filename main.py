@@ -3,6 +3,7 @@ import os
 import random
 import sys
 import time
+import traceback
 
 from flask import Flask, jsonify, request
 from google.cloud import firestore
@@ -130,22 +131,26 @@ def slow_request():
 @app.route("/cpu-heavy", methods=["GET"])
 def cpu_heavy():
     """
-    Calculate Fibonacci to spike the CPU.
+    Perform some CPU heavy task
     Hit this heavily to see the chart spike in the metrics for 'Container CPU Utilization'
     """
     logger.info(
-        "Starting CPU crunch",
+        "Starting CPU crunch (5 seconds)",
         extra={"component": "cpu-demo", "trace_id": get_trace_id()},
     )
 
-    def fib(n):
-        if n <= 1:
-            return n
-        return fib(n - 1) + fib(n - 2)
+    # force CPU to work at 100% for 5 seconds
+    # this prevents CPU from sleeping or handling other I/O
+    start_time = time.time()
+    while time.time() - start_time < 5:
+        # useless calculation
+        _ = [x * x for x in range(1000)]
 
-    result = fib(30)  # high enough to spike CPU
-
-    return jsonify({"result": result}), 200
+    logger.info(
+        "CPU crunch finished",
+        extra={"component": "cpu-demo", "trace_id": get_trace_id()},
+    )
+    return jsonify({"message": "Burned CPU for 5 seconds"}), 200
 
 
 # errors and alerts
@@ -153,7 +158,7 @@ def cpu_heavy():
 def flaky_endpoint():
     """
     Randomly return a 500 error.
-    Trigger error reporting or an alert policy
+    Trigger/View errors in logs
     """
     if random.choice([True, False]):
         logger.error(
@@ -188,26 +193,6 @@ def cached_config():
         )
 
     return jsonify(GLOBAL_CACHE)
-
-
-# simulate crashing application
-@app.route("/crash", methods=["GET"])
-def crash():
-    """
-    Trigger Cloud Error Reporting
-    Because the errror is unhandled, python prints a stack trace
-    Google Cloud detects this trace and groups it in 'Error Reporting' dashboard
-    """
-
-    trace_id = get_trace_id()
-    logger.info(
-        "About to crash application...",
-        extra={"component": "chaos", "trace_id": trace_id},
-    )
-
-    # raise an exception. Flask catches it but returns a 500 response
-    # but it will print the traceback to stdout which GCP picks up
-    raise RuntimeError("This is a forced crash to test Error Reporting!")
 
 
 if __name__ == "__main__":
