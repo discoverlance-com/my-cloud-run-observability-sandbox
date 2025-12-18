@@ -61,6 +61,36 @@ The `Dockerfile` uses a builder stage to install packages into `/app/site-packag
 - Metrics & Alerts:
   - Use `cpu-heavy` and `slow-trace` to generate observable signals for metrics dashboards and alerting rules.
 
+Optional: Service-to-service tracing (service_b integration)
+- Purpose
+  - If you want richer, linked traces for requests that span services (service A → service B) and more visibility into individual spans within each service, enable service-to-service trace context propagation and per-service instrumentation.
+- What this repo already provides (service_b example)
+  - `service_b.py` demonstrates per-service instrumentation:
+    - `FlaskInstrumentor().instrument_app(app)` to capture incoming HTTP spans.
+    - `RequestsInstrumentor().instrument()` to automatically inject/extract trace propagation headers on outgoing requests.
+  - `setup_opentelemetry.py` configures OTLP exporters for traces, logs, and metrics so spans and logs are exported to your collector/Cloud Trace.
+- How to enable better cross-service traces
+  - Ensure every service:
+    - Initializes OpenTelemetry SDK (tracer provider and OTLP exporter) like `setup_opentelemetry.py`.
+    - Instruments the web framework (e.g., Flask) to capture incoming spans.
+    - Instruments the HTTP client (requests, httpx, etc.) to propagate context on outgoing calls so the downstream service receives the same trace id.
+  - In practice:
+    - On the caller side, instrument the outgoing HTTP client (RequestsInstrumentor is used in `service_b.py`) — this will add the necessary headers for propagation.
+    - On the callee side, instrument the web framework (FlaskInstrumentor) so incoming requests create child spans under the propagated trace.
+  - Manual propagation (optional):
+    - If you need explicit control, read the incoming header (e.g., `X-Cloud-Trace-Context`) and forward it on outgoing requests:
+      - Read: `trace_header = request.headers.get("X-Cloud-Trace-Context")`
+      - Forward: `requests.post(url, json=payload, headers={"X-Cloud-Trace-Context": trace_header})`
+    - Automatic instrumentation (RequestsInstrumentor) usually handles this for you and is recommended.
+- Single-service detailed spans and visibility
+  - To get more granular spans inside a service, use an explicit tracer and create spans around important operations:
+    - Use the SDK tracer (via `trace.get_tracer(__name__)`) and `with tracer.start_as_current_span("operation-name"):` around database calls, business logic, or outgoing requests.
+    - This gives you fine-grained spans within a service so Cloud Trace shows not only the request-level span but also sub-operations.
+- When to use this
+  - Enable service-to-service propagation when you want end-to-end traces across microservices.
+  - Add extra internal spans when you need deeper visibility into bottlenecks or want to surface internal operations in Cloud Trace.
+
+
 ## Firestore
 - The app initializes a Firestore client at startup using `google-cloud-firestore`.
 - If initialization fails, `db` falls back to `None` and DB-related endpoints will skip database operations (but still run).
