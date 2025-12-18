@@ -3,8 +3,8 @@ import os
 import random
 import sys
 import time
-import traceback
 
+import requests
 from flask import Flask, jsonify, request
 from google.cloud import firestore
 from pythonjsonlogger.json import JsonFormatter
@@ -15,7 +15,7 @@ logger = logging.getLogger()
 logHandler = logging.StreamHandler(sys.stdout)
 # Let's include 'trace_id' in the format
 formatter = JsonFormatter(
-    "%(actime)s %(levelname)s %(message)s %(component)s %(trace_id)s"
+    "%(asctime)s %(levelname)s %(message)s %(component)s %(trace_id)s"
 )
 logHandler.setFormatter(formatter)
 logger.addHandler(logHandler)
@@ -193,6 +193,31 @@ def cached_config():
         )
 
     return jsonify(GLOBAL_CACHE)
+
+
+# Day 25: distributed tracing across services
+@app.route("/chain-request", methods=["GET"])
+def chain_request():
+    """
+    calls an external microservice (B)
+    """
+    logger.info("Calling Math Service...", extra={"component": "frontend"})
+
+    SERVICE_B_URL = os.environ.get("SERVICE_B_URL")
+
+    if not SERVICE_B_URL:
+        raise RuntimeError("Missing the service B environment variable")
+
+    try:
+        response = requests.post(f"{SERVICE_B_URL}/multiply", json={"value": 49})
+        data = response.json()
+
+        return jsonify({"message": "Chain completed", "math_result": data}), 200
+    except Exception:
+        logger.error(
+            "Failed to call service B", exc_info=True, extra={"component": "frontend"}
+        )
+        return jsonify({"message": "Downstream call to service B failed"}), 500
 
 
 if __name__ == "__main__":
